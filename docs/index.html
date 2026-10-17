@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f4e79">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SA午前Ⅱ">
+<title>SA 午前Ⅱ 対策</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css?v=de6dd5f9">
+</head>
+<body>
+<header id="top">
+  <button id="back" class="hdr-btn" aria-label="戻る" hidden>‹</button>
+  <h1 id="title">SA 午前Ⅱ 対策</h1>
+  <span id="hdr-right"></span>
+</header>
+<main id="view"></main>
+<nav id="tabs">
+  <button data-tab="home"><span>🏠</span>ホーム</button>
+  <button data-tab="practice"><span>✏️</span>演習</button>
+  <button data-tab="terms"><span>📖</span>用語</button>
+  <button data-tab="trend"><span>📊</span>傾向</button>
+  <button data-tab="stats"><span>🏆</span>成績</button>
+</nav>
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-bg"></div>
+  <div class="sheet-body">
+    <div class="sheet-bar"><button id="sheet-back" aria-label="前の用語">‹</button><span id="sheet-title"></span><button id="sheet-close" aria-label="閉じる">✕</button></div>
+    <div id="sheet-content"></div>
+  </div>
+</div>
+<div id="lightbox" hidden><img alt=""></div>
+<script src="data.js?v=de6dd5f9"></script>
+<script src="app.js?v=de6dd5f9"></script>
+</body>
+</html>
