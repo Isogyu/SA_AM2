@@ -10,6 +10,8 @@ const STORE_KEY = "sa_am2_v1";
 
 const Q = {}; D.questions.forEach(q => (Q[q.id] = q));
 const EXAM = {}; D.exams.forEach((e, i) => (EXAM[e.id] = Object.assign({ idx: i }, e)));
+EXAM.orig = { id: "orig", idx: -1, label: "オリジナル問題", short: "OR" };
+const PAST = D.questions.filter(q => !q.orig), ORIG = D.questions.filter(q => q.orig);
 const EXAM_IDS = D.exams.map(e => e.id);
 const RECENT5 = EXAM_IDS.slice(-5);
 const CAT_IDS = Object.keys(D.cats).filter(c => D.questions.some(q => q.cat === c));
@@ -26,7 +28,7 @@ for (const [name, t] of Object.entries(D.terms)) TERM_FREQ[name] = (t.qs || []).
 // 分野ごとの本番の並び順（平均問題番号）と直近5回の出題数
 const CAT_ORDER = {}, CAT_QUOTA = {};
 CAT_IDS.forEach(c => {
-  const qs = D.questions.filter(q => q.cat === c);
+  const qs = PAST.filter(q => q.cat === c);
   CAT_ORDER[c] = qs.reduce((s, q) => s + q.n, 0) / qs.length;
   CAT_QUOTA[c] = D.questions.filter(q => q.cat === c && RECENT5.includes(q.exam)).length / RECENT5.length;
 });
@@ -63,7 +65,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const src = q => `${EXAM[q.exam].label} 問${q.n}`;
+const src = q => (q.orig ? `オリジナル問題 No.${q.n}` : `${EXAM[q.exam].label} 問${q.n}`);
 const srcShort = q => `${EXAM[q.exam].short}-${q.n}`;
 function rich(s) {
   return String(s)
@@ -198,7 +200,7 @@ function explainHtml(q, picked) {
     <div class="card exp"><b>解説</b><div>${rich(q.exp)}</div>
     ${q.terms.length ? `<div class="tchips">${q.terms.map(t => (D.terms[t] ? `<a class="tchip t" data-t="${esc(t)}">${esc(t)}</a>` : "")).join("")}</div>` : ""}
     </div>
-    <p class="small muted">出典：IPA ${esc(src(q))}／${esc(D.cats[q.cat])}・${esc(q.sub)}${q.syl ? `／シラバス ${q.syl} ${esc(D.syl[q.syl])}に関すること` : ""}</p>
+    <p class="small muted">出典：${q.orig ? "オリジナル問題（過去問の出題傾向を分析して作成）" : "IPA " + esc(src(q))}／${esc(D.cats[q.cat])}・${esc(q.sub)}${q.syl ? `／シラバス ${q.syl} ${esc(D.syl[q.syl])}に関すること` : ""}</p>
     ${reps.length ? `<p class="small"><span class="pill rep">再出題</span>同じ問題が ${reps.map(r => esc(EXAM[r.exam].short + "-" + r.n)).join("，")} にも出題されています。</p>` : ""}
   `;
 }
@@ -381,7 +383,7 @@ TABS.home = el => {
     ${days ? `<p class="card" style="text-align:center;margin-top:0">${days}</p>` : ""}
     <div class="kpi">
       <div><b>${p === null ? "—" : Math.round(p * 100)}</b><span>予測得点</span></div>
-      <div><b>${mast}</b><span>習得 / 400問</span></div>
+      <div><b>${mast}</b><span>習得 / ${D.questions.length}問</span></div>
       <div><b>${todayCnt}</b><span>今日の解答${streak > 1 ? `（${streak}日連続）` : ""}</span></div>
     </div>
     ${p !== null ? `<p class="small muted" style="margin:6px 2px">予測得点は回答履歴と本番の分野構成から推定（基準点 60）。${p >= 0.75 ? "合格圏です。模試で仕上げましょう。" : p >= 0.6 ? "基準点付近です。弱点分野と復習を優先しましょう。" : "まずは毎日の“おすすめ演習”で全体を一巡しましょう。"}</p>` : `<p class="small muted" style="margin:6px 2px">15 問以上解くと予測得点を表示します。</p>`}
@@ -429,8 +431,9 @@ TABS.practice = el => {
     <button class="btn" data-go="rep"><b>再出題された頻出問題</b><span class="sub">${repIds.length} 問中 未習得 ${repUnmastered} 問（同じ問題が複数回出題）</span></button>
     <button class="btn" data-go="new" ${unanswered ? "" : "disabled"}><b>未回答の問題</b><span class="sub">${unanswered} 問（重要度の高い順）</span></button>
     <button class="btn" data-go="weak" ${weak.length ? "" : "disabled"}><b>弱点分野の集中演習</b><span class="sub">${weak.length ? weak.map(x => `${D.cats[x.c]} ${Math.round(x.rate * 100)}%`).join("／") : "3問以上解くと判定します"}</span></button>
+    <button class="btn" data-go="orig"><b>オリジナル問題</b><span class="sub">${ORIG.length} 問（過去問の頻出テーマ・近年の新傾向から作成）　未回答 ${ORIG.filter(q => !stat(q.id)).length} 問</span></button>
     <button class="btn" data-go="bm" ${bm ? "" : "disabled"}><b>☆ ブックマーク</b><span class="sub">${bm} 問</span></button>
-    <button class="btn" data-go="mock"><b>本番形式の模擬試験</b><span class="sub">本番の分野構成で25問・40分。見直しフラグ・一覧付き</span></button>`;
+    <button class="btn" data-go="mock"><b>本番形式の模擬試験</b><span class="sub">本番の分野構成で25問・40分。過去問＋オリジナル問題から出題</span></button>`;
   el.querySelectorAll("#nsel button").forEach(b => (b.onclick = () => { S.settings.n = +b.dataset.n; save(); TABS.practice(el); }));
   const n = () => S.settings.n;
   const go = {
@@ -440,6 +443,7 @@ TABS.practice = el => {
     rep: () => { const pool = D.questions.filter(q => q.rep && !mastered(q.id)); const ids = []; const p = pool.slice(); while (ids.length < n() && p.length) { const q = weighted(p, importance); ids.push(q.id); p.splice(p.indexOf(q), 1); } startDrill(ids.length ? ids : shuffle(repIds).slice(0, n()), "頻出問題"); },
     new: () => { const p = D.questions.filter(q => !stat(q.id)); const ids = []; while (ids.length < n() && p.length) { const q = weighted(p, importance); ids.push(q.id); p.splice(p.indexOf(q), 1); } startDrill(ids, "未回答の問題"); },
     weak: () => { const cs = new Set(weak.map(x => x.c)); const p = D.questions.filter(q => cs.has(q.cat) && !mastered(q.id)); startDrill(shuffle(p.map(q => q.id)).slice(0, n()), "弱点分野"); },
+    orig: () => { const p = ORIG.filter(q => !mastered(q.id)); startDrill(shuffle((p.length ? p : ORIG).map(q => q.id)).slice(0, n()), "オリジナル問題"); },
     bm: () => startDrill(shuffle(Object.keys(S.bm)).slice(0, n()), "ブックマーク"),
     mock: () => { if (confirm("本番形式（25問・40分）の模擬試験を開始します。途中で解説は表示されません。")) startMock(); },
   };
@@ -501,20 +505,20 @@ function flashView(el, st) {
 TABS.trend = el => {
   setTitle("出題傾向");
   const rows = CAT_IDS.slice().sort((a, b) => CAT_ORDER[a] - CAT_ORDER[b]).map(c => {
-    const qs = D.questions.filter(q => q.cat === c);
+    const qs = PAST.filter(q => q.cat === c);
     return { c, all: qs.length, r5: CAT_QUOTA[c], acc: catAcc(c), rep: qs.filter(q => q.rep).length };
   });
   const repByExam = EXAM_IDS.map(e => ({ e, n: D.questions.filter(q => q.exam === e && (q.rep || []).some(r => r < q.id)).length }));
-  const subs = {}; D.questions.forEach(q => { const k = q.cat + "|" + q.sub; subs[k] = (subs[k] || 0) + 1; });
+  const subs = {}; PAST.forEach(q => { const k = q.cat + "|" + q.sub; subs[k] = (subs[k] || 0) + 1; });
   const topSubs = Object.entries(subs).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const groups = []; const seen = new Set();
   D.questions.filter(q => q.rep).forEach(q => { if (seen.has(q.id)) return; const g = [q.id, ...q.rep]; g.forEach(x => seen.add(x)); groups.push(g); });
   groups.sort((a, b) => b.length - a.length || Math.max(...b.map(id => EXAM[Q[id].exam].idx)) - Math.max(...a.map(id => EXAM[Q[id].exam].idx)));
-  const sylCnt = {}; D.questions.forEach(q => { if (q.syl) sylCnt[q.syl] = (sylCnt[q.syl] || 0) + 1; });
+  const sylCnt = {}; PAST.forEach(q => { if (q.syl) sylCnt[q.syl] = (sylCnt[q.syl] || 0) + 1; });
   el.innerHTML = `
-    <div class="card small">IPA が公開する平成21年度〜令和7年度（令和2年度は中止）の <b>16 回・400 問</b>を分析。分類は試験要綱の出題分野（午前Ⅱ）に準拠，シラバスは SA 試験シラバス Ver.5.2 の大項目に対応付けています。</div>
+    <div class="card small">オリジナル問題 ${ORIG.length} 問は，この分析で頻出・増加傾向と判断したテーマ（設計原則・テスト技法・アジャイル・契約形態・ゼロトラスト等の新しいセキュリティ・計算問題）を，過去問と同じ形式で作成したものです。<br>IPA が公開する平成21年度〜令和7年度（令和2年度は中止）の <b>16 回・400 問</b>を分析。分類は試験要綱の出題分野（午前Ⅱ）に準拠，シラバスは SA 試験シラバス Ver.5.2 の大項目に対応付けています。</div>
     <h2>分野別の出題数</h2>
-    <div class="card scroll-x"><table class="tbl"><tr><th>分野</th><th>収録問題</th><th>本番の出題数<br><span class="small">（直近5回平均）</span></th><th>あなたの正答率</th></tr>
+    <div class="card scroll-x"><table class="tbl"><tr><th>分野</th><th>過去問</th><th>本番の出題数<br><span class="small">（直近5回平均）</span></th><th>あなたの正答率</th></tr>
     ${rows.map(r => `<tr><td>${esc(D.cats[r.c])}</td><td>${r.all}</td><td>${r.r5.toFixed(1)}</td><td>${r.acc.a ? pct(r.acc.c, r.acc.a) + "%" : "—"}</td></tr>`).join("")}</table>
     <p class="small muted">本番の出題数は${esc(QUOTA_SRC)}。模擬試験はこの構成で 25 問を出題します。</p></div>
     ${REF ? `<h2>年度別の出題数（出題分析資料）</h2>
@@ -546,7 +550,7 @@ TABS.stats = el => {
   el.innerHTML = `
     <div class="kpi">
       <div><b>${pct(all.c, all.a)}%</b><span>累計正答率</span></div>
-      <div><b>${answered}</b><span>解いた問題 /400</span></div>
+      <div><b>${answered}</b><span>解いた問題 /${D.questions.length}</span></div>
       <div><b>${mast}</b><span>習得（直近2回正解）</span></div>
     </div>
     <h2>分野別の正答率</h2>

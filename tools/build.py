@@ -87,7 +87,7 @@ def find_repeats(questions):
 
     for i in range(len(questions)):
         for j in range(i + 1, len(questions)):
-            if questions[i]["exam"] == questions[j]["exam"]:
+            if questions[i]["exam"] == questions[j]["exam"] or "orig" in (questions[i]["exam"], questions[j]["exam"]):
                 continue
             qi, ci = keys[i]
             qj, cj = keys[j]
@@ -238,6 +238,23 @@ def main():
                 terms[name]["rel"] += [r for r in t.get("rel", []) if r[0] not in known]
                 continue
             terms[name] = {"cat": t["cat"], "def": t["def"], "rel": t.get("rel", []), "src": eid}
+    # オリジナル問題（過去問の傾向分析に基づく作問）
+    orig_path = os.path.join(ROOT, "data", "original.json")
+    if os.path.exists(orig_path):
+        orig = json.load(open(orig_path, encoding="utf-8"))
+        for k, q in enumerate(orig["questions"], 1):
+            qid = f"orig-{k:02d}"
+            if q["ans"] not in KANA or len(q["ch"]) != 4 or len(q["cx"]) != 4 or q["cat"] not in CATS:
+                errors.append(f"{qid}: invalid")
+                continue
+            questions.append({
+                "id": qid, "exam": "orig", "n": k, "cat": q["cat"], "sub": q.get("sub", ""),
+                "syl": q.get("syl", ""), "q": q["q"], "ch": q["ch"], "cx": q["cx"],
+                "ans": KANA.index(q["ans"]), "exp": q["exp"], "terms": q.get("terms", []),
+                "point": q.get("point", ""), "orig": True,
+            })
+        for name, t in orig.get("terms", {}).items():
+            terms.setdefault(name, {"cat": t["cat"], "def": t["def"], "rel": t.get("rel", []), "src": "orig"})
     for path in sorted(glob.glob(os.path.join(ROOT, "data", "terms", "*.json"))):
         for name, t in json.load(open(path, encoding="utf-8")).items():
             if name in terms:
@@ -275,7 +292,9 @@ def main():
         f.write(";\n")
     stamp_version()
 
-    print(f"exams={len(exams)} questions={len(questions)} terms={len(terms)}")
+    print(f"exams={len(exams)} questions={len(questions)} (original {sum(1 for q in questions if q.get('orig'))}) terms={len(terms)}")
+    from collections import Counter
+    print("original answers:", dict(Counter("アイウエ"[q["ans"]] for q in questions if q.get("orig"))))
     for w in warnings:
         print("WARN", w)
     if undefined:
